@@ -61,7 +61,7 @@ import_consumption:
         number:
           min: 0
           max: 10000
-          step: 0.0001
+          step: "any"
           mode: box
     invoice_number:
       name: Numero fattura
