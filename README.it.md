@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="custom_components/acea_acqua/brand/logo.png" alt="Acea Acqua Logo" width="220">
+</p>
+
 # Acea Acqua - Integrazione Home Assistant 💧
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://github.com/hacs/default)
