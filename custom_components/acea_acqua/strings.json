@@ -1,0 +1,13 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Acea Acqua",
+        "description": "Abilita il servizio acea_acqua.import_consumption e i sensori per i consumi idrici."
+      }
+    },
+    "abort": {
+      "already_configured": "Acea Acqua è già configurato."
+    }
+  }
+}

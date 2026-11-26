@@ -1,0 +1,126 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Create GitHub Release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate Python and JSON Files
+        run: |
+          python3 -m py_compile custom_components/acea_acqua/*.py
+          python3 -c "import json, glob; [json.load(open(f)) for f in ['hacs.json', 'custom_components/acea_acqua/manifest.json', 'custom_components/acea_acqua/strings.json'] + glob.glob('custom_components/acea_acqua/translations/*.json')]"
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - name: Run Go Tests
+        run: go test -v ./...
+
+      - name: Build CLI/GUI Binaries
+        run: |
+          mkdir -p dist
+          GOOS=linux   GOARCH=amd64 go build -o dist/acea-ha-linux-amd64 .
+          GOOS=linux   GOARCH=arm64 go build -o dist/acea-ha-linux-arm64 .
+          GOOS=darwin  GOARCH=amd64 go build -o dist/acea-ha-darwin-amd64 .
+          GOOS=darwin  GOARCH=arm64 go build -o dist/acea-ha-darwin-arm64 .
+          GOOS=windows GOARCH=amd64 go build -o dist/acea-ha-windows-amd64.exe .
+
+      - name: Generate Changelog from Commits
+        run: |
+          git fetch --tags --force 2>/dev/null || true
+          TAG_NAME="${{ github.ref_name }}"
+          if [ -z "$TAG_NAME" ]; then
+            TAG_NAME="${GITHUB_REF#refs/tags/}"
+          fi
+
+          echo "Generazione Changelog per: $TAG_NAME"
+          PREV_TAG=$(git describe --tags --abbrev=0 "${TAG_NAME}^" 2>/dev/null || true)
+          TAG_MSG=$(git tag -l --format='%(contents)' "$TAG_NAME" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+
+          {
+            if [ -n "$TAG_MSG" ]; then
+              echo "### Note di rilascio"
+              echo "$TAG_MSG"
+              echo ""
+            fi
+
+            echo "### Modifiche"
+            if [ -n "$PREV_TAG" ]; then
+              echo "_Modifiche rispetto a \`$PREV_TAG\` :_"
+              echo ""
+              git log --no-merges --grep="^chore(release):" --invert-grep --pretty=format:"- %s (%h)" "$PREV_TAG..$TAG_NAME"
+            else
+              echo "_Primo rilascio:_"
+              echo ""
+              git log --no-merges --grep="^chore(release):" --invert-grep --pretty=format:"- %s (%h)" "$TAG_NAME"
+            fi
+            echo ""
+          } > CHANGELOG.md
+
+          cat CHANGELOG.md
+
+      - name: Update manifest version from tag
+        run: |
+          TAG="${{ github.ref_name }}"
+          if [ -z "$TAG" ]; then
+            TAG="${GITHUB_REF#refs/tags/}"
+          fi
+          VERSION="${TAG#v}"
+          MANIFEST="custom_components/acea_acqua/manifest.json"
+          python3 -c "import json; p='$MANIFEST'; d=json.load(open(p)); d['version']='$VERSION'; sorted_d={'domain': d['domain'], 'name': d['name'], **{k: d[k] for k in sorted(d.keys()) if k not in ('domain', 'name')}}; json.dump(sorted_d, open(p, 'w'), indent=2, ensure_ascii=False); open(p, 'a').write('\n')"
+          if ! git diff --quiet "$MANIFEST"; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            TAG_MSG=$(git tag -l --format='%(contents)' "$TAG" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+            git add "$MANIFEST"
+            git commit -m "chore(release): bump manifest version to $VERSION [skip ci]"
+            DEFAULT_BRANCH=$(git remote show origin | sed -n '/HEAD branch/s/.*: //p')
+            if [ -n "$DEFAULT_BRANCH" ]; then
+              git push origin "HEAD:refs/heads/$DEFAULT_BRANCH" || true
+            fi
+            if [ -n "$TAG_MSG" ]; then
+              git tag -fa "$TAG" -m "$TAG_MSG"
+            else
+              git tag -f "$TAG"
+            fi
+            git push origin "refs/tags/$TAG" --force
+          fi
+          cat custom_components/acea_acqua/manifest.json
+
+      - name: Zip custom_components
+        run: |
+          cd "${{ github.workspace }}/custom_components/acea_acqua"
+          zip -r "${{ github.workspace }}/acea_acqua.zip" . -x "*__pycache__*"
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: Release ${{ github.ref_name }}
+          files: |
+            acea_acqua.zip
+            dist/acea-ha-linux-amd64
+            dist/acea-ha-linux-arm64
+            dist/acea-ha-darwin-amd64
+            dist/acea-ha-darwin-arm64
+            dist/acea-ha-windows-amd64.exe
+          body_path: CHANGELOG.md
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

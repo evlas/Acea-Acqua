@@ -1,0 +1,75 @@
+import_consumption:
+  name: Importa consumo bolletta Acea Acqua
+  description: >-
+    Distribuisce il consumo idrico di un periodo di fatturazione sulle statistiche
+    a lungo termine (Long-Term Statistics) del database di Home Assistant.
+  fields:
+    statistic_id:
+      name: Statistic ID
+      description: ID della statistica esterna (formato dominio:nome).
+      default: "acea_acqua:water_consumption"
+      example: "acea_acqua:water_consumption"
+      selector:
+        text:
+    name:
+      name: Nome
+      description: Nome visualizzato nella dashboard Energia.
+      default: "Acea Acqua Consumo Idrico"
+      selector:
+        text:
+    period_start:
+      name: Inizio periodo
+      description: Data di inizio lettura (YYYY-MM-DD).
+      required: true
+      example: "2026-07-11"
+      selector:
+        date:
+    period_end:
+      name: Fine periodo
+      description: Data di fine lettura (YYYY-MM-DD).
+      required: true
+      example: "2026-10-12"
+      selector:
+        date:
+    consumption_mc:
+      name: Consumo totale (m³)
+      description: Consumo fatturato nel periodo in metri cubi.
+      required: true
+      example: 29
+      selector:
+        number:
+          min: 0
+          step: 0.01
+          unit_of_measurement: "m³"
+    days:
+      name: Giorni
+      description: Numero di giorni del periodo (calcolato automaticamente se omesso).
+      example: 94
+      selector:
+        number:
+          min: 1
+          step: 1
+    daily_average_mc:
+      name: Media giornaliera (m³/g)
+      description: Media giornaliera in m³ (calcolata automaticamente se omessa).
+      example: 0.308511
+      selector:
+        number:
+          min: 0
+          step: 0.0001
+    invoice_number:
+      name: Numero fattura
+      selector:
+        text:
+    customer_code:
+      name: Codice utenza
+      selector:
+        text:
+    issue_date:
+      name: Data emissione
+      selector:
+        text:
+    billing_type:
+      name: Tipo fatturazione
+      selector:
+        text:

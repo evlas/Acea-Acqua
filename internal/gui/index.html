@@ -1,0 +1,531 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Acea Acqua -> Home Assistant</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --panel: #1e293b;
+      --panel-2: #263349;
+      --border: #334155;
+      --text: #f1f5f9;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --accent-hover: #0ea5e9;
+      --ok: #22c55e;
+      --err: #ef4444;
+      --warn: #f59e0b;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.45;
+    }
+    .container {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 24px 16px 48px;
+    }
+    header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    h1 {
+      margin: 0;
+      font-size: 1.45rem;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .badge {
+      font-size: 0.75rem;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--accent);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+    }
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 16px;
+    }
+    .card h2 {
+      margin: 0 0 12px;
+      font-size: 1rem;
+      color: var(--accent);
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+    }
+    label {
+      display: block;
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    input[type="text"], input[type="password"], input[type="date"], input[type="number"] {
+      width: 100%;
+      padding: 8px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 0.9rem;
+    }
+    input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    .dropzone {
+      border: 2px dashed var(--border);
+      border-radius: 10px;
+      padding: 18px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.15s, background 0.15s;
+      color: var(--muted);
+    }
+    .dropzone.drag {
+      border-color: var(--accent);
+      background: rgba(56, 189, 248, 0.08);
+      color: var(--text);
+    }
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 12px;
+    }
+    button {
+      border: 0;
+      border-radius: 8px;
+      padding: 9px 16px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      background: var(--accent);
+      color: #082f49;
+    }
+    button:hover:not(:disabled) { background: var(--accent-hover); }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    button.secondary {
+      background: var(--panel-2);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.88rem;
+    }
+    th, td {
+      text-align: left;
+      padding: 10px 8px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+    th {
+      color: var(--muted);
+      font-weight: 600;
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    .num { font-variant-numeric: tabular-nums; }
+    .status-pill {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+    }
+    .status-pending { background: rgba(148, 163, 184, 0.15); color: var(--muted); }
+    .status-ok { background: rgba(34, 197, 94, 0.18); color: var(--ok); }
+    .status-err { background: rgba(239, 68, 68, 0.18); color: var(--err); }
+    .details-row td {
+      background: rgba(15, 23, 42, 0.5);
+      font-size: 0.8rem;
+      color: var(--muted);
+      padding: 8px 12px;
+    }
+    .summary-bar {
+      display: flex;
+      gap: 20px;
+      flex-wrap: wrap;
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+    .summary-bar strong { color: var(--text); }
+    .msg {
+      margin-top: 10px;
+      font-size: 0.88rem;
+    }
+    .msg.err { color: var(--err); }
+    .msg.ok { color: var(--ok); }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Acea Acqua &rarr; Home Assistant <span class="badge">Validazione Bollette</span></h1>
+      <div class="summary-bar" id="summaryBar">Nessuna bolletta caricata</div>
+    </header>
+
+    <section class="card">
+      <h2>1. Connessione Home Assistant <span id="cfgSaved" style="font-size:0.75rem;color:var(--ok);font-weight:400;margin-left:8px;"></span></h2>
+      <div class="grid">
+        <div>
+          <label for="haUrl">URL Home Assistant</label>
+          <input id="haUrl" type="text" placeholder="http://homeassistant.local:8123" />
+        </div>
+        <div>
+          <label for="haToken">Long-Lived Access Token</label>
+          <input id="haToken" type="password" placeholder="eyJhbGciOi..." />
+        </div>
+        <div>
+          <label for="statId">Statistic ID (formato <code>dominio:nome</code>)</label>
+          <input id="statId" type="text" value="acea_acqua:water_consumption" placeholder="acea_acqua:water_consumption" />
+        </div>
+        <div>
+          <label for="statName">Nome Statistica</label>
+          <input id="statName" type="text" value="Acea Acqua Consumo Idrico" />
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>2. Carica Bollette PDF</h2>
+      <div class="dropzone" id="dropzone">
+        Trascina qui una o più bollette PDF di Acea Acqua, oppure clicca per selezionarle
+        <input id="fileInput" type="file" accept=".pdf,application/pdf" multiple hidden />
+      </div>
+      <div id="uploadMsg" class="msg"></div>
+    </section>
+
+    <section class="card">
+      <h2>3. Verifica e modifica i dati prima dell'invio</h2>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th><input type="checkbox" id="selectAll" checked title="Seleziona tutto" /></th>
+              <th>Fattura</th>
+              <th>Inizio Periodo</th>
+              <th>Fine Periodo</th>
+              <th>Giorni</th>
+              <th>Consumo (m&sup3;)</th>
+              <th>Media (m&sup3;/gg)</th>
+              <th>Media (L/gg)</th>
+              <th>Stato</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="billsBody"></tbody>
+        </table>
+      </div>
+      <div class="actions">
+        <div id="sendMsg" class="msg"></div>
+        <div style="display:flex; gap:10px;">
+          <button class="secondary" id="clearBtn" type="button">Svuota lista</button>
+          <button id="sendBtn" type="button">Invia selezionate a Home Assistant</button>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    let bills = [];
+
+    const haUrlEl = document.getElementById('haUrl');
+    const haTokenEl = document.getElementById('haToken');
+    const statIdEl = document.getElementById('statId');
+    const statNameEl = document.getElementById('statName');
+    const cfgSavedEl = document.getElementById('cfgSaved');
+    const billsBody = document.getElementById('billsBody');
+
+    const STORAGE_KEY = 'acea_acqua_ha_cfg';
+    let saveTimer = null;
+
+    function saveSettings() {
+      const cfg = {
+        ha_url: haUrlEl.value.trim(),
+        ha_token: haTokenEl.value.trim(),
+        statistic_id: statIdEl.value.trim(),
+        stat_name: statNameEl.value.trim(),
+      };
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(cfg)); } catch (_) {}
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(async () => {
+        try {
+          const res = await fetch('/api/config', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(cfg),
+          });
+          if (res.ok) {
+            cfgSavedEl.textContent = 'Impostazioni salvate';
+            setTimeout(() => { cfgSavedEl.textContent = ''; }, 2000);
+          }
+        } catch (_) {}
+      }, 300);
+    }
+
+    [haUrlEl, haTokenEl, statIdEl, statNameEl].forEach(el => {
+      el.addEventListener('input', saveSettings);
+      el.addEventListener('change', saveSettings);
+    });
+    const summaryBar = document.getElementById('summaryBar');
+    const uploadMsg = document.getElementById('uploadMsg');
+    const sendMsg = document.getElementById('sendMsg');
+    const selectAllEl = document.getElementById('selectAll');
+    const sendBtn = document.getElementById('sendBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const dropzone = document.getElementById('dropzone');
+    const fileInput = document.getElementById('fileInput');
+
+    function calcDays(start, end) {
+      const s = new Date(start + 'T00:00:00Z');
+      const e = new Date(end + 'T00:00:00Z');
+      if (isNaN(s) || isNaN(e) || e < s) return 0;
+      return Math.round((e - s) / 86400000) + 1;
+    }
+
+    function recalcBill(b) {
+      const days = calcDays(b.period_start, b.period_end);
+      b.days = days > 0 ? days : b.days;
+      b.daily_average_mc = b.days > 0 ? (Number(b.consumption_mc) / b.days) : 0;
+      b.daily_average_liters = b.daily_average_mc * 1000;
+    }
+
+    function render() {
+      billsBody.innerHTML = '';
+      if (bills.length === 0) {
+        billsBody.innerHTML = '<tr><td colspan="10" style="color:var(--muted);text-align:center;padding:24px;">Nessuna bolletta presente. Trascina dei PDF qui sopra o avvia con <code>-gui upload/</code>.</td></tr>';
+        summaryBar.textContent = 'Nessuna bolletta caricata';
+        sendBtn.disabled = true;
+        return;
+      }
+
+      let selectedCount = 0;
+      let totalMC = 0;
+      let totalDays = 0;
+
+      bills.forEach((b, idx) => {
+        if (b._selected) {
+          selectedCount++;
+          totalMC += Number(b.consumption_mc) || 0;
+          totalDays += Number(b.days) || 0;
+        }
+
+        const tr = document.createElement('tr');
+        const statusClass = b._status === 'ok' ? 'status-ok' : (b._status === 'err' ? 'status-err' : 'status-pending');
+        const statusText = b._status === 'ok' ? 'Inviata' : (b._status === 'err' ? 'Errore' : 'Da inviare');
+
+        tr.innerHTML = `
+          <td><input type="checkbox" ${b._selected ? 'checked' : ''} data-idx="${idx}" class="row-chk" /></td>
+          <td>
+            <strong>${esc(b.invoice_number || '-')}</strong><br/>
+            <span style="font-size:0.75rem;color:var(--muted)">${esc(b.billing_type || '')} ${b.issue_date ? '· ' + esc(b.issue_date) : ''}</span>
+          </td>
+          <td><input type="date" value="${esc(b.period_start)}" data-idx="${idx}" data-field="period_start" /></td>
+          <td><input type="date" value="${esc(b.period_end)}" data-idx="${idx}" data-field="period_end" /></td>
+          <td class="num">${b.days}</td>
+          <td><input type="number" step="0.01" min="0" value="${Number(b.consumption_mc).toFixed(2)}" data-idx="${idx}" data-field="consumption_mc" style="width:95px" /></td>
+          <td class="num">${Number(b.daily_average_mc).toFixed(4)}</td>
+          <td class="num">${Number(b.daily_average_liters).toFixed(1)}</td>
+          <td>
+            <span class="status-pill ${statusClass}" title="${esc(b._error || '')}">${statusText}</span>
+            ${b._error ? `<div style="color:var(--err);font-size:0.75rem;margin-top:4px;max-width:260px;word-break:break-word;">${esc(b._error)}</div>` : ''}
+          </td>
+          <td><button type="button" class="secondary" style="padding:4px 8px;font-size:0.78rem" data-toggle="${idx}">Dettagli</button></td>
+        `;
+        billsBody.appendChild(tr);
+
+        if (b._expanded) {
+          const dtr = document.createElement('tr');
+          dtr.className = 'details-row';
+          const readingsHtml = (b.readings || []).map(r =>
+            `Contatore <strong>${esc(r.meter_id)}</strong>: ${esc(r.from_date)} &rarr; ${esc(r.to_date)} (${esc(r.reading_type)}, ${r.from_value} &rarr; ${r.to_value} = <strong>${r.consumption_mc} m&sup3;</strong>)`
+          ).join('<br/>') || 'Nessun dettaglio letture estratto.';
+          dtr.innerHTML = `<td colspan="10">File: <code>${esc(b.source_file || '-')}</code> · Utenza: <strong>${esc(b.customer_code || '-')}</strong><br/>${readingsHtml}${b._error ? '<br/><span style="color:var(--err)">Errore: ' + esc(b._error) + '</span>' : ''}</td>`;
+          billsBody.appendChild(dtr);
+        }
+      });
+
+      const avgAll = totalDays > 0 ? (totalMC / totalDays) : 0;
+      summaryBar.innerHTML = `
+        <span>Selezionate: <strong>${selectedCount}/${bills.length}</strong></span>
+        <span>Totale: <strong>${totalMC.toFixed(2)} m&sup3;</strong> in <strong>${totalDays} gg</strong></span>
+        <span>Media complessiva: <strong>${avgAll.toFixed(4)} m&sup3;/gg</strong> (${(avgAll * 1000).toFixed(1)} L/gg)</span>
+      `;
+      sendBtn.disabled = selectedCount === 0;
+    }
+
+    function esc(s) {
+      return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    billsBody.addEventListener('change', (e) => {
+      const idx = Number(e.target.dataset.idx);
+      if (e.target.classList.contains('row-chk')) {
+        bills[idx]._selected = e.target.checked;
+        render();
+        return;
+      }
+      const field = e.target.dataset.field;
+      if (field) {
+        bills[idx][field] = field === 'consumption_mc' ? Number(e.target.value) : e.target.value;
+        recalcBill(bills[idx]);
+        bills[idx]._status = 'pending';
+        bills[idx]._error = '';
+        render();
+      }
+    });
+
+    billsBody.addEventListener('click', (e) => {
+      if (e.target.dataset.toggle !== undefined) {
+        const idx = Number(e.target.dataset.toggle);
+        bills[idx]._expanded = !bills[idx]._expanded;
+        render();
+      }
+    });
+
+    selectAllEl.addEventListener('change', () => {
+      bills.forEach(b => b._selected = selectAllEl.checked);
+      render();
+    });
+
+    clearBtn.addEventListener('click', () => {
+      bills = [];
+      sendMsg.textContent = '';
+      render();
+    });
+
+    dropzone.addEventListener('click', () => fileInput.click());
+    dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('drag'); });
+    dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag'));
+    dropzone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      dropzone.classList.remove('drag');
+      if (e.dataTransfer.files.length) uploadFiles(e.dataTransfer.files);
+    });
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files.length) uploadFiles(fileInput.files);
+      fileInput.value = '';
+    });
+
+    async function uploadFiles(fileList) {
+      uploadMsg.className = 'msg';
+      uploadMsg.textContent = 'Elaborazione PDF in corso...';
+      const fd = new FormData();
+      for (const f of fileList) fd.append('files', f);
+
+      try {
+        const res = await fetch('/api/parse', { method: 'POST', body: fd });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Errore parsing PDF');
+
+        let added = 0;
+        for (const nb of (data.bills || [])) {
+          const dup = nb.invoice_number && bills.some(b => b.invoice_number === nb.invoice_number);
+          if (!dup) {
+            nb._selected = true;
+            nb._status = 'pending';
+            bills.push(nb);
+            added++;
+          }
+        }
+        bills.sort((a, b) => a.period_start.localeCompare(b.period_start));
+        uploadMsg.className = 'msg ok';
+        uploadMsg.textContent = `Aggiunte ${added} bollette.` + (data.errors?.length ? ' Avvisi: ' + data.errors.join('; ') : '');
+        render();
+      } catch (err) {
+        uploadMsg.className = 'msg err';
+        uploadMsg.textContent = err.message;
+      }
+    }
+
+    sendBtn.addEventListener('click', async () => {
+      const selected = bills.filter(b => b._selected);
+      if (selected.length === 0) return;
+
+      sendMsg.className = 'msg';
+      sendMsg.textContent = 'Invio a Home Assistant in corso...';
+      sendBtn.disabled = true;
+
+      try {
+        const res = await fetch('/api/send', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ha_url: haUrlEl.value.trim(),
+            ha_token: haTokenEl.value.trim(),
+            statistic_id: statIdEl.value.trim(),
+            stat_name: statNameEl.value.trim(),
+            bills: selected
+          })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Errore invio');
+
+        let okCount = 0;
+        let firstErr = '';
+        for (const r of (data.results || [])) {
+          const target = bills.find(b => b.invoice_number === r.invoice_number && b.period_start === r.period_start);
+          if (target) {
+            target._status = r.ok ? 'ok' : 'err';
+            target._error = r.error || '';
+          }
+          if (r.ok) {
+            okCount++;
+          } else if (!firstErr && r.error) {
+            firstErr = r.error;
+          }
+        }
+        sendMsg.className = okCount === selected.length ? 'msg ok' : 'msg err';
+        sendMsg.textContent = `Inviate ${okCount} su ${selected.length} bollette a Home Assistant.` + (firstErr ? ` Dettaglio: ${firstErr}` : '');
+        render();
+      } catch (err) {
+        sendMsg.className = 'msg err';
+        sendMsg.textContent = err.message;
+        sendBtn.disabled = false;
+      }
+    });
+
+    async function init() {
+      try {
+        const res = await fetch('/api/init');
+        const data = await res.json();
+        let localCfg = {};
+        try { localCfg = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}'); } catch (_) {}
+        haUrlEl.value = data.ha_url || localCfg.ha_url || '';
+        haTokenEl.value = data.ha_token || localCfg.ha_token || '';
+        statIdEl.value = data.statistic_id || localCfg.statistic_id || 'acea_acqua:water_consumption';
+        statNameEl.value = data.stat_name || localCfg.stat_name || 'Acea Acqua Consumo Idrico';
+        bills = (data.bills || []).map(b => ({ ...b, _selected: true, _status: 'pending' }));
+        render();
+      } catch (err) {
+        sendMsg.className = 'msg err';
+        sendMsg.textContent = 'Errore caricamento iniziale: ' + err.message;
+      }
+    }
+    init();
+  </script>
+</body>
+</html>
