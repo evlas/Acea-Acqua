@@ -6,31 +6,31 @@ import_consumption:
   fields:
     statistic_id:
       name: Statistic ID
-      description: ID della statistica esterna (formato dominio:nome).
+      description: ID della statistica esterna (formato dominio:nome) o entity_id.
       default: "acea_acqua:water_consumption"
       example: "acea_acqua:water_consumption"
       selector:
-        text:
+        text: {}
     name:
       name: Nome
       description: Nome visualizzato nella dashboard Energia.
       default: "Acea Acqua Consumo Idrico"
       selector:
-        text:
+        text: {}
     period_start:
       name: Inizio periodo
       description: Data di inizio lettura (YYYY-MM-DD).
       required: true
       example: "2026-07-11"
       selector:
-        date:
+        date: {}
     period_end:
       name: Fine periodo
       description: Data di fine lettura (YYYY-MM-DD).
       required: true
       example: "2026-10-12"
       selector:
-        date:
+        date: {}
     consumption_mc:
       name: Consumo totale (m³)
       description: Consumo fatturato nel periodo in metri cubi.
@@ -39,7 +39,9 @@ import_consumption:
       selector:
         number:
           min: 0
+          max: 100000
           step: 0.01
+          mode: box
           unit_of_measurement: "m³"
     days:
       name: Giorni
@@ -48,7 +50,9 @@ import_consumption:
       selector:
         number:
           min: 1
+          max: 3650
           step: 1
+          mode: box
     daily_average_mc:
       name: Media giornaliera (m³/g)
       description: Media giornaliera in m³ (calcolata automaticamente se omessa).
@@ -56,20 +60,26 @@ import_consumption:
       selector:
         number:
           min: 0
+          max: 10000
           step: 0.0001
+          mode: box
     invoice_number:
       name: Numero fattura
+      description: Numero della fattura Acea Acqua.
       selector:
-        text:
+        text: {}
     customer_code:
       name: Codice utenza
+      description: Codice utenza Acea Acqua.
       selector:
-        text:
+        text: {}
     issue_date:
       name: Data emissione
+      description: Data di emissione della fattura (YYYY-MM-DD).
       selector:
-        text:
+        text: {}
     billing_type:
       name: Tipo fatturazione
+      description: Tipologia di fatturazione (es. SALDO, ACCONTO, CONGUAGLIO).
       selector:
-        text:
+        text: {}
