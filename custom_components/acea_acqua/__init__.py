@@ -21,6 +21,7 @@ from homeassistant.const import Platform, UnitOfVolume
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.dispatcher import async_dispatcher_send
+from homeassistant.helpers.event import async_track_time_change
 from homeassistant.helpers.storage import Store
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.util import dt as dt_util
@@ -67,6 +68,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Acea Acqua from a config entry."""
     await _async_ensure_initialized(hass)
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    hass.async_create_task(_async_refresh_recorder_summary(hass))
     return True
 
 
@@ -98,6 +100,68 @@ async def _async_ensure_initialized(hass: HomeAssistant) -> None:
         handle_import_consumption,
         schema=SERVICE_SCHEMA,
     )
+
+    async def _handle_midnight_refresh(_now: datetime) -> None:
+        async with domain_data["lock"]:
+            await _async_refresh_recorder_summary(hass)
+
+    if "unsub_midnight" not in domain_data:
+        domain_data["unsub_midnight"] = async_track_time_change(
+            hass, _handle_midnight_refresh, hour=0, minute=0, second=5
+        )
+
+
+async def _async_compute_year_metrics(
+    hass: HomeAssistant, statistic_id: str, fallback_total: float = 0.0
+) -> dict[str, Any]:
+    """Query Recorder Long-Term Statistics for total cumulative sum, Jan 1st baseline, and current year consumption."""
+    current_year = dt_util.now().year
+    jan1_utc = _local_midnight_utc(date(current_year, 1, 1))
+    next_jan1_utc = _local_midnight_utc(date(current_year + 1, 1, 1))
+    far_future_utc = _local_midnight_utc(date(current_year + 10, 1, 1))
+
+    total_sum = await _async_get_sum_before(hass, statistic_id, far_future_utc)
+    if total_sum <= 0.0 and fallback_total > 0.0:
+        total_sum = fallback_total
+
+    jan1_baseline = await _async_get_sum_before(hass, statistic_id, jan1_utc)
+    year_end_sum = await _async_get_sum_before(hass, statistic_id, next_jan1_utc)
+    if year_end_sum <= 0.0 and total_sum > 0.0:
+        year_end_sum = total_sum
+
+    current_year_mc = max(0.0, year_end_sum - jan1_baseline)
+
+    return {
+        "current_year": current_year,
+        "cumulative_sum_mc": round(total_sum, 4),
+        "jan1_baseline_mc": round(jan1_baseline, 4),
+        "current_year_consumption_mc": round(current_year_mc, 4),
+    }
+
+
+async def _async_refresh_recorder_summary(hass: HomeAssistant) -> None:
+    """Refresh cumulative, Jan 1st baseline, and current year consumption from Recorder statistics."""
+    domain_data = hass.data.get(DOMAIN)
+    if not domain_data:
+        return
+
+    latest = dict(domain_data.get("latest") or {})
+    statistic_id = str(latest.get("statistic_id") or DEFAULT_STATISTIC_ID).strip()
+    fallback_total = float(latest.get("cumulative_sum_mc") or 0.0)
+
+    try:
+        recorder_instance = get_instance(hass)
+        await recorder_instance.async_block_till_done()
+    except Exception:
+        pass
+
+    metrics = await _async_compute_year_metrics(hass, statistic_id, fallback_total=fallback_total)
+    latest.setdefault("statistic_id", statistic_id)
+    latest.update(metrics)
+
+    domain_data["latest"] = latest
+    await domain_data["store"].async_save(latest)
+    async_dispatcher_send(hass, SIGNAL_UPDATED)
 
 
 async def _async_import_bill_period(hass: HomeAssistant, data: dict[str, Any]) -> None:
@@ -162,6 +226,10 @@ async def _async_import_bill_period(hass: HomeAssistant, data: dict[str, Any]) -
 
     await recorder_instance.async_block_till_done()
 
+    year_metrics = await _async_compute_year_metrics(
+        hass, statistic_id, fallback_total=running_sum
+    )
+
     latest_payload = {
         "statistic_id": statistic_id,
         "period_start": period_start.isoformat(),
@@ -174,7 +242,7 @@ async def _async_import_bill_period(hass: HomeAssistant, data: dict[str, Any]) -
         "customer_code": data.get("customer_code", ""),
         "issue_date": data.get("issue_date", ""),
         "billing_type": data.get("billing_type", ""),
-        "cumulative_sum_mc": round(running_sum, 4),
+        **year_metrics,
     }
 
     domain_data = hass.data[DOMAIN]

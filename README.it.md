@@ -22,7 +22,12 @@ Integrazione personalizzata per **Home Assistant** e strumento CLI / Web GUI scr
 - **Integrazione Home Assistant (`acea_acqua`)**:
   - Registra il servizio `acea_acqua.import_consumption` che scrive i dati storici giorno per giorno tramite `async_add_external_statistics` (`acea_acqua:water_consumption`) o `async_import_statistics`.
   - Serializza gli import e attende il commit del Recorder (`async_block_till_done`), garantendo continuità cumulativa e idempotenza.
-  - Espone i sensori di riepilogo `sensor.acea_acqua_consumo_medio_giornaliero` (`m³/d`) e `sensor.acea_acqua_ultimo_consumo_fatturato` (`m³`).
+  - Espone 5 sensori nativi sotto il dispositivo **Acea Acqua**:
+    - `sensor.acea_acqua_consumo_totale_storico` (`m³`, cumulativo totale dalle Long-Term Statistics del Recorder)
+    - `sensor.acea_acqua_consumo_anno_corrente` (`m³`, consumo maturato dal 1° gennaio dell'anno in corso)
+    - `sensor.acea_acqua_lettura_inizio_anno` (`m³`, valore cumulativo al 1° gennaio 00:00 letto automaticamente dal Recorder)
+    - `sensor.acea_acqua_ultimo_consumo_fatturato` (`m³`, consumo dell'ultima bolletta importata)
+    - `sensor.acea_acqua_consumo_medio_giornaliero` (`m³/d`, media giornaliera dell'ultimo periodo)
 
 ## Installazione in Home Assistant
 

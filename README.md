@@ -22,7 +22,12 @@ Home Assistant custom integration and pure-Go CLI/Web GUI tool (zero external Go
 - **Home Assistant Integration (`acea_acqua`)**:
   - Exposes `acea_acqua.import_consumption` service using `async_add_external_statistics` (or `async_import_statistics` for entity IDs) so historical periods are written directly into the Recorder DB.
   - Serializes imports and awaits Recorder DB commits so consecutive bills remain continuous and idempotent.
-  - Provides summary sensors: `sensor.acea_acqua_consumo_medio_giornaliero` (`m³/d`) and `sensor.acea_acqua_ultimo_consumo_fatturato` (`m³`).
+  - Provides 5 native sensors under the **Acea Acqua** device:
+    - `sensor.acea_acqua_consumo_totale_storico` (`m³`, total cumulative consumption from Recorder Long-Term Statistics)
+    - `sensor.acea_acqua_consumo_anno_corrente` (`m³`, calendar-year consumption since January 1st)
+    - `sensor.acea_acqua_lettura_inizio_anno` (`m³`, cumulative reading at January 1st 00:00 queried automatically from the Recorder)
+    - `sensor.acea_acqua_ultimo_consumo_fatturato` (`m³`, latest billed consumption)
+    - `sensor.acea_acqua_consumo_medio_giornaliero` (`m³/d`, latest daily average)
 
 ## Installation (Home Assistant)
 

@@ -15,6 +15,7 @@ from homeassistant.components.sensor import (
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import UnitOfVolume
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
@@ -48,6 +49,36 @@ SENSORS: tuple[AceaSensorDescription, ...] = (
         suggested_display_precision=2,
         value_fn=lambda d: d.get("consumption_mc"),
     ),
+    AceaSensorDescription(
+        key="cumulative_sum_mc",
+        name="Acea Acqua Consumo Totale Storico",
+        icon="mdi:counter",
+        device_class=SensorDeviceClass.WATER,
+        native_unit_of_measurement=UnitOfVolume.CUBIC_METERS,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        suggested_display_precision=3,
+        value_fn=lambda d: d.get("cumulative_sum_mc"),
+    ),
+    AceaSensorDescription(
+        key="current_year_consumption_mc",
+        name="Acea Acqua Consumo Anno Corrente",
+        icon="mdi:water-sync",
+        device_class=SensorDeviceClass.WATER,
+        native_unit_of_measurement=UnitOfVolume.CUBIC_METERS,
+        state_class=SensorStateClass.TOTAL_INCREASING,
+        suggested_display_precision=3,
+        value_fn=lambda d: d.get("current_year_consumption_mc"),
+    ),
+    AceaSensorDescription(
+        key="jan1_baseline_mc",
+        name="Acea Acqua Lettura Inizio Anno",
+        icon="mdi:calendar-start",
+        device_class=SensorDeviceClass.WATER,
+        native_unit_of_measurement=UnitOfVolume.CUBIC_METERS,
+        state_class=SensorStateClass.TOTAL,
+        suggested_display_precision=3,
+        value_fn=lambda d: d.get("jan1_baseline_mc"),
+    ),
 )
 
 
@@ -76,6 +107,12 @@ class AceaAcquaSensor(SensorEntity):
         self.hass = hass
         self.entity_description = description
         self._attr_unique_id = f"{entry.entry_id}_{description.key}"
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, entry.entry_id)},
+            name="Acea Acqua",
+            manufacturer="Acea Ato 5 / Acea",
+            model="Fornitura Idrica (Long-Term Statistics)",
+        )
 
     async def async_added_to_hass(self) -> None:
         """Register dispatcher listener when added to HA."""
@@ -104,6 +141,10 @@ class AceaAcquaSensor(SensorEntity):
             return {}
         return {
             "statistic_id": latest.get("statistic_id"),
+            "current_year": latest.get("current_year"),
+            "cumulative_sum_mc": latest.get("cumulative_sum_mc"),
+            "jan1_baseline_mc": latest.get("jan1_baseline_mc"),
+            "current_year_consumption_mc": latest.get("current_year_consumption_mc"),
             "period_start": latest.get("period_start"),
             "period_end": latest.get("period_end"),
             "days": latest.get("days"),
@@ -112,5 +153,4 @@ class AceaAcquaSensor(SensorEntity):
             "customer_code": latest.get("customer_code"),
             "issue_date": latest.get("issue_date"),
             "billing_type": latest.get("billing_type"),
-            "cumulative_sum_mc": latest.get("cumulative_sum_mc"),
         }
